@@ -50,6 +50,7 @@
               content = {
                 type = "zfs";
                 pool = "zroot";
+              };
             };
           };
         };
