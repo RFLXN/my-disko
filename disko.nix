@@ -1,6 +1,12 @@
 # ata-CT120BX500SSD1_1919E181081A
 # ata-CT240BX500SSD1_1932E1924936
 
+# USAGE in your configuration.nix.
+# Update devices to match your hardware.
+# {
+#  imports = [ ./disko-config.nix ];
+#  disko.devices.disk.main.device = "/dev/sda";
+# }
 {
   disko.devices = {
     disk = {
@@ -11,29 +17,36 @@
           type = "gpt";
           partitions = {
             ESP = {
-              type = "EF00";
               size = "1G";
+              type = "EF00";
               content = {
                 type = "filesystem";
                 format = "vfat";
                 mountpoint = "/boot";
-                mountOptions = [ "umaxk=0077" ];
+                mountOptions = [ "umask=0077" ];
               };
             };
-            SWAP = {
-              type = "8200";
-              size = "16G";
-              content = {
-                type = "swap";
-                randomEncryption = true;
-                resumeDevice = true;
-              };
-            };
-            ZFS = {
-              size = "100%";
+            zfs = {
+              end = "-16G";
               content = {
                 type = "zfs";
                 pool = "zroot";
+              };
+            };
+            encryptedSwap = {
+              size = "16M";
+              content = {
+                type = "swap";
+                randomEncryption = true;
+                priority = 100; # prefer to encrypt as long as we have space for it
+              };
+            };
+            plainSwap = {
+              size = "100%";
+              content = {
+                type = "swap";
+                discardPolicy = "both";
+                resumeDevice = true; # resume from hiberation from this device
               };
             };
           };
@@ -45,7 +58,7 @@
         content = {
           type = "gpt";
           partitions = {
-            ZFS = {
+            zfs = {
               size = "100%";
               content = {
                 type = "zfs";
@@ -60,32 +73,38 @@
       zroot = {
         type = "zpool";
         rootFsOptions = {
-          mountpoint = "none";
-          compressions = "zstd";
           acltype = "posixacl";
+          atime = "off";
+          compression = "zstd";
+          mountpoint = "none";
           xattr = "sa";
         };
         options.ashift = "12";
+
         datasets = {
-          "root" = {
+          "local" = {
             type = "zfs_fs";
-            options.encryption = "off";
-            mountpoint = "/";
+            options.mountpoint = "none";
           };
-          "root/nix" = {
+          "local/home" = {
             type = "zfs_fs";
-            options.mountpoint = "/nix";
-            mountpoint = "/nix";
-          };
-          "root/home" = {
-            type = "zfs_fs";
-            options.mountpoint = "/home";
             mountpoint = "/home";
+            options."com.sun:auto-snapshot" = "false";
           };
-          "root/data" = {
+          "local/nix" = {
             type = "zfs_fs";
-            options.mountpoint = "/data";
-            mountpoint = "/data";
+            mountpoint = "/nix";
+            options."com.sun:auto-snapshot" = "false";
+          };
+          "local/persist" = {
+            type = "zfs_fs";
+            mountpoint = "/persist";
+            options."com.sun:auto-snapshot" = "false";
+          };
+          "local/root" = {
+            type = "zfs_fs";
+            mountpoint = "/";
+            options."com.sun:auto-snapshot" = "false";
           };
         };
       };
